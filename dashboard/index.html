@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Polymarket Bond Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#070710;--surface:#0e0e1a;--surface2:#13131f;--border:#1e1e30;
+  --accent:#7c3aed;--accent2:#4f46e5;--green:#10b981;--red:#ef4444;
+  --yellow:#f59e0b;--blue:#3b82f6;--purple:#8b5cf6;--cyan:#06b6d4;
+  --text:#e2e8f0;--muted:#475569;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(124,58,237,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.wrap{max-width:1600px;margin:0 auto;padding:14px;position:relative;z-index:1}
+
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.logo{font-weight:800;font-size:16px;background:linear-gradient(135deg,#7c3aed,#4f46e5,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.price-row{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid;white-space:nowrap}
+.pill.btc{color:var(--yellow);background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3)}
+.pill.eth{color:var(--blue);background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3)}
+.pill.gold{color:#fcd34d;background:rgba(252,211,77,.08);border-color:rgba(252,211,77,.25)}
+.pill.oil{color:#6b7280;background:rgba(107,114,128,.1);border-color:rgba(107,114,128,.3)}
+.pill.spx{color:var(--green);background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3)}
+.pill.mode{color:white;background:var(--accent);border-color:var(--accent);font-weight:700}
+.live{width:6px;height:6px;background:var(--green);border-radius:50%;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+
+/* ── STATS ROW ── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color .3s}
+.sc:hover{border-color:var(--accent)}
+.sc-lbl{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.sc-val{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1;margin-bottom:3px}
+.sc-sub{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.g{color:var(--green)}.r{color:var(--red)}.y{color:var(--yellow)}.w{color:var(--text)}.p{color:var(--purple)}
+
+/* ── MAIN LAYOUT ── */
+.main{display:grid;grid-template-columns:1fr 1fr 340px;gap:12px;margin-bottom:12px}
+.col{display:flex;flex-direction:column;gap:12px}
+
+/* ── CARD ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ct{font-size:12px;font-weight:700;letter-spacing:.5px}
+.cs{font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+/* ── P&L CHART ── */
+.chart-wrap{position:relative;height:160px;margin-bottom:12px}
+.chart-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.cm{text-align:center}
+.cm-l{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px}
+.cm-v{font-family:var(--mono);font-size:12px;font-weight:700}
+
+/* ── DAILY BARS ── */
+.dbars{display:flex;align-items:flex-end;gap:5px;height:72px;margin-bottom:6px}
+.dbw{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end}
+.db{width:100%;border-radius:2px 2px 0 0;min-height:2px;cursor:pointer}
+.db.pos{background:linear-gradient(180deg,var(--green),rgba(16,185,129,.3))}
+.db.neg{background:linear-gradient(0deg,var(--red),rgba(239,68,68,.3));border-radius:0 0 2px 2px}
+.dl{font-size:8px;color:var(--muted);font-family:var(--mono)}
+.dv{font-size:7px;font-family:var(--mono);font-weight:700}
+
+/* ── WIN/LOSS ── */
+.wl-row{margin-bottom:10px}
+.wl-hdr{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;font-family:var(--mono)}
+.wl-bar{height:7px;background:var(--border);border-radius:3px;overflow:hidden}
+.wl-fill{height:100%;border-radius:3px;transition:width .8s}
+.wl-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── RADAR ── */
+.radar-list{display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto;padding-right:2px}
+.radar-list::-webkit-scrollbar{width:3px}
+.radar-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ri{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px;transition:all .2s}
+.ri:hover{border-color:var(--accent);transform:translateX(2px)}
+.ri.h{border-left:2px solid var(--green)}
+.ri.m{border-left:2px solid var(--yellow)}
+.ri.l{border-left:2px solid var(--muted)}
+.rq{font-size:10px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4}
+.rm{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:7px}
+.rs{text-align:center}
+.rs-l{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.rs-v{font-family:var(--mono);font-size:10px;font-weight:700}
+.rf{display:flex;align-items:center;gap:6px}
+.rb{font-size:9px;font-family:var(--mono);color:var(--accent)}
+.wbar{flex:1;height:3px;background:var(--border);border-radius:1px;overflow:hidden}
+.wfill{height:100%;background:linear-gradient(90deg,var(--green),#34d399);border-radius:1px}
+.wpct{font-size:10px;font-family:var(--mono);font-weight:700}
+.badge{padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:var(--mono)}
+.badge.yes{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.badge.no{background:rgba(71,85,105,.15);color:var(--muted);border:1px solid var(--border)}
+.cat-badge{padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700}
+.cat-crypto{background:rgba(124,58,237,.15);color:var(--purple)}
+.cat-commodity{background:rgba(245,158,11,.15);color:var(--yellow)}
+.cat-stocks{background:rgba(16,185,129,.15);color:var(--green)}
+.cat-forex{background:rgba(59,130,246,.15);color:var(--blue)}
+.cat-politics{background:rgba(239,68,68,.15);color:var(--red)}
+.cat-other{background:rgba(71,85,105,.15);color:var(--muted)}
+
+/* ── BOTS ── */
+.bots-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.bot{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;transition:all .3s}
+.bot:hover{border-color:var(--accent);transform:translateY(-2px)}
+.bot.off{opacity:.45;border-color:var(--red)}
+.bh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bind{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.bind.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.bind.off{background:var(--red)}
+.bn{font-size:10px;font-weight:700;letter-spacing:.3px;margin-left:5px;flex:1}
+.bstats{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-bottom:8px}
+.bs{background:var(--surface2);border-radius:5px;padding:5px;text-align:center}
+.bs-l{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:1px}
+.bs-v{font-family:var(--mono);font-size:11px;font-weight:700}
+.wrbar{height:3px;background:var(--border);border-radius:1px;overflow:hidden;margin-bottom:8px}
+.wrfill{height:100%;border-radius:1px;transition:width .8s}
+.stopbtn{width:100%;padding:5px;border-radius:5px;font-size:9px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:all .2s;letter-spacing:.3px}
+.stopbtn.run{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.stopbtn.run:hover{background:var(--red);color:white}
+.stopbtn.stp{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.stopbtn.stp:hover{background:var(--green);color:white}
+
+/* ── POSITIONS ── */
+.pos-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto}
+.pi{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.pa{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.pa.btc{background:rgba(245,158,11,.15);color:var(--yellow)}
+.pa.eth{background:rgba(59,130,246,.15);color:var(--blue)}
+.pa.gold{background:rgba(252,211,77,.1);color:#fcd34d}
+.pa.oil{background:rgba(107,114,128,.15);color:#9ca3af}
+.pa.spx{background:rgba(16,185,129,.15);color:var(--green)}
+.pa.other{background:rgba(124,58,237,.15);color:var(--purple)}
+.pinfo{flex:1;min-width:0}
+.pq{font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.ppnl{font-family:var(--mono);font-size:12px;font-weight:700;flex-shrink:0}
+
+/* ── TRADES TABLE ── */
+.ttable{width:100%;border-collapse:collapse}
+.ttable th{text-align:left;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;padding:7px 9px;border-bottom:1px solid var(--border);font-family:var(--sans);font-weight:600}
+.ttable td{padding:9px;font-size:10px;border-bottom:1px solid rgba(30,30,48,.5);font-family:var(--mono)}
+.ttable tr:last-child td{border-bottom:none}
+.ttable tr:hover td{background:rgba(124,58,237,.04)}
+.tb{padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700}
+.tb.win{background:rgba(16,185,129,.15);color:var(--green)}
+.tb.loss{background:rgba(239,68,68,.15);color:var(--red)}
+.tb.pending{background:rgba(245,158,11,.15);color:var(--yellow)}
+
+/* ── CATEGORY SUMMARY ── */
+.cats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px}
+.cat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;transition:all .2s}
+.cat-card:hover{border-color:var(--accent)}
+.cat-icon{font-size:20px;margin-bottom:5px}
+.cat-name{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.cat-count{font-family:var(--mono);font-size:18px;font-weight:700}
+.cat-wr{font-size:9px;font-family:var(--mono);margin-top:2px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1200px){
+  .main{grid-template-columns:1fr 1fr}
+  .main .col:last-child{grid-column:1/-1}
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .bots-row{grid-template-columns:repeat(3,1fr)}
+  .cats{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:768px){
+  .main{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .bots-row{grid-template-columns:repeat(2,1fr)}
+  .cats{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ── HEADER ── -->
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="logo">⚡ POLYMARKET BOND BOT</div>
+    <div class="pill mode"><span class="live"></span>PAPER MODE</div>
+  </div>
+  <div class="price-row" id="priceRow">
+    <div class="pill btc">BTC <span id="pBTC">loading...</span></div>
+    <div class="pill eth">ETH <span id="pETH">—</span></div>
+    <div class="pill gold">GOLD <span id="pGOLD">—</span></div>
+    <div class="pill oil">OIL <span id="pOIL">—</span></div>
+    <div class="pill spx">SPX <span id="pSPX">—</span></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="lastUpdate">Refreshing...</div>
+</div>
+
+<!-- ── STATS ── -->
+<div class="stats">
+  <div class="sc">
+    <div class="sc-lbl">Today P&L</div>
+    <div class="sc-val g" id="sPnlDay">+$0.00</div>
+    <div class="sc-sub" id="sTrDay">0 trades · 0% WR</div>
+  </div>
+  <div class="sc">
+    <div class="sc-lbl">This Week</div>
+    <div class="sc-val g" id="sPnlWeek">+$0.00</div>
+    <div class="sc-sub" id="sTrWeek">0 trades</div>
+  </div>
+  <div class="sc">
+    <div class="sc-lbl">All Time</div>
+    <div class="sc-val g" id="sPnlAll">+$0.00</div>
+    <div class="sc-sub" id="sTrAll">0 trades · 0% WR</div>
+  </div>
+  <div class="sc">
+    <div class="sc-lbl">Radar Markets</div>
+    <div class="sc-val p" id="sRadar">0</div>
+    <div class="sc-sub" id="sRadarSub">scanning...</div>
+  </div>
+  <div class="sc">
+    <div class="sc-lbl">Active Bots</div>
+    <div class="sc-val w" id="sBots">5 / 5</div>
+    <div class="sc-sub" id="sPos">0 open positions</div>
+  </div>
+</div>
+
+<!-- ── CATEGORY SUMMARY ── -->
+<div class="cats" id="catCards">
+  <div class="cat-card"><div class="cat-icon">🪙</div><div class="cat-name">Crypto</div><div class="cat-count w" id="cc0">0</div><div class="cat-wr g">scanning</div></div>
+  <div class="cat-card"><div class="cat-icon">🛢️</div><div class="cat-name">Commodity</div><div class="cat-count w" id="cc1">0</div><div class="cat-wr y">scanning</div></div>
+  <div class="cat-card"><div class="cat-icon">📈</div><div class="cat-name">Stocks</div><div class="cat-count w" id="cc2">0</div><div class="cat-wr g">scanning</div></div>
+  <div class="cat-card"><div class="cat-icon">💱</div><div class="cat-name">Forex</div><div class="cat-count w" id="cc3">0</div><div class="cat-wr b">scanning</div></div>
+  <div class="cat-card"><div class="cat-icon">🗳️</div><div class="cat-name">Politics</div><div class="cat-count w" id="cc4">0</div><div class="cat-wr r">scanning</div></div>
+  <div class="cat-card"><div class="cat-icon">📊</div><div class="cat-name">Other</div><div class="cat-count w" id="cc5">0</div><div class="cat-wr" style="color:var(--muted)">scanning</div></div>
+</div>
+
+<!-- ── MAIN GRID ── -->
+<div class="main">
+
+  <!-- Col 1: Charts -->
+  <div class="col">
+
+    <!-- P&L Line -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📈 P&L TRACKER</div>
+        <div style="display:flex;gap:4px">
+          <button onclick="setTab(this,'1D')" class="tbtn active">1D</button>
+          <button onclick="setTab(this,'1W')" class="tbtn">1W</button>
+          <button onclick="setTab(this,'1M')" class="tbtn">1M</button>
+        </div>
+      </div>
+      <style>.tbtn{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s}.tbtn.active{background:var(--accent);border-color:var(--accent);color:white}</style>
+      <div class="chart-wrap"><canvas id="pnlChart"></canvas></div>
+      <div class="chart-meta">
+        <div class="cm"><div class="cm-l">Peak</div><div class="cm-v g" id="cpeak">+$0.00</div></div>
+        <div class="cm"><div class="cm-l">Low</div><div class="cm-v r" id="clow">$0.00</div></div>
+        <div class="cm"><div class="cm-l">Net</div><div class="cm-v g" id="cnet">+$0.00</div></div>
+      </div>
+    </div>
+
+    <!-- Daily Bars -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📊 DAILY P&L</div>
+        <div class="cs g" id="weekTotal">+$0.00 this week</div>
+      </div>
+      <div class="dbars" id="dailyBars"><div style="color:var(--muted);font-size:10px;text-align:center;width:100%">Loading...</div></div>
+    </div>
+
+    <!-- Win/Loss -->
+    <div class="card">
+      <div class="ch"><div class="ct">🎯 WIN / LOSS BREAKDOWN</div></div>
+      <div class="wl-row">
+        <div class="wl-hdr"><span>WINS</span><span class="g" id="wlWinPct">0%</span></div>
+        <div class="wl-bar"><div class="wl-fill g" id="wlWinBar" style="width:0%;background:var(--green)"></div></div>
+      </div>
+      <div class="wl-row">
+        <div class="wl-hdr"><span>LOSSES</span><span class="r" id="wlLossPct">0%</span></div>
+        <div class="wl-bar"><div class="wl-fill r" id="wlLossBar" style="width:0%;background:var(--red)"></div></div>
+      </div>
+      <div class="wl-stats">
+        <div class="cm"><div class="cm-l">Avg Win</div><div class="cm-v g" id="avgWin">+$0.00</div></div>
+        <div class="cm"><div class="cm-l">Avg Loss</div><div class="cm-v r" id="avgLoss">-$0.00</div></div>
+        <div class="cm"><div class="cm-l">Profit Factor</div><div class="cm-v p" id="pf">0.00x</div></div>
+      </div>
+    </div>
+
+    <!-- Open Positions -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">💼 OPEN POSITIONS</div>
+        <div class="cs" id="posCount">0 active</div>
+      </div>
+      <div class="pos-list" id="posList">
+        <div style="color:var(--muted);font-size:10px;text-align:center;padding:14px">No open positions</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Col 2: Radar + Trades -->
+  <div class="col">
+
+    <!-- Bond Radar -->
+    <div class="card" style="flex:1">
+      <div class="ch">
+        <div class="ct">🎯 IMPOSSIBLE MARKET RADAR</div>
+        <div class="cs" id="radarCount">0 found</div>
+      </div>
+      <div class="radar-list" id="radarList">
+        <div style="color:var(--muted);font-size:10px;text-align:center;padding:20px">Scanning all markets...</div>
+      </div>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">🔄 RECENT TRADES</div>
+        <div class="cs">auto-refresh 30s</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ttable">
+          <thead>
+            <tr>
+              <th>Bot</th><th>Category</th><th>Market</th><th>Side</th>
+              <th>Amt</th><th>Yield</th><th>P&L</th><th>Time</th><th>Result</th>
+            </tr>
+          </thead>
+          <tbody id="trBody">
+            <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px">No trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Col 3: Bots Column -->
+  <div class="col">
+
+    <!-- System Status -->
+    <div class="card">
+      <div class="ch"><div class="ct">⚡ SYSTEM STATUS</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Mode</span><span class="g">PAPER TRADING</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Strategy</span><span class="y">Buy NO · Impossible Targets</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Circuit Breaker</span><span id="cbStatus" class="g">CLOSED ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">BTC Crash Guard</span><span class="g">Active (-7%)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Trades Placed</span><span id="tpStatus" class="w">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Trades Rejected</span><span id="trStatus" class="w">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telegram Status -->
+    <div class="card">
+      <div class="ch"><div class="ct">📱 TELEGRAM ALERTS</div><div class="cs" id="tgStatus">checking...</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Status</span><span id="tgEnabled">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Token</span><span id="tgToken">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)">
+          <span style="color:var(--muted)">Chat ID</span><span id="tgChat">—</span>
+        </div>
+        <div style="font-size:9px;color:var(--muted);padding:6px;background:var(--surface2);border-radius:5px;line-height:1.6">
+          Set on Railway:<br>
+          <code style="color:var(--accent)">TELEGRAM_BOT_TOKEN</code><br>
+          <code style="color:var(--accent)">TELEGRAM_CHAT_ID</code>
+        </div>
+        <button onclick="testTelegram()" id="tgTestBtn"
+          style="width:100%;padding:6px;border-radius:6px;font-size:10px;font-weight:700;
+          cursor:pointer;border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.1);
+          color:var(--blue);font-family:var(--sans);transition:all .2s">
+          📤 SEND TEST MESSAGE
+        </button>
+        <div id="tgTestResult" style="font-size:9px;text-align:center;font-family:var(--mono);display:none"></div>
+      </div>
+    </div>
+
+    <!-- All 5 Bots in right column -->
+    <div class="card" style="flex:1">
+      <div class="ch"><div class="ct">🤖 BOT CONTROLS</div><div class="cs" id="botActive">5/5 active</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px" id="botList">
+        <div style="color:var(--muted);font-size:10px;text-align:center;padding:10px">Loading bots...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── BOTS GRID (full width) ── -->
+<div style="margin-bottom:12px">
+  <div style="font-size:12px;font-weight:700;margin-bottom:10px;letter-spacing:.5px">🤖 BOT PERFORMANCE DASHBOARD</div>
+  <div class="bots-row" id="botsGrid">
+    <div style="color:var(--muted);font-size:10px">Loading...</div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+const AUTH = 'Basic ' + btoa('admin:arena2026');
+let pnlHistory = [];
+
+async function api(url) {
+  try {
+    const r = await fetch(url, {headers:{Authorization:AUTH}});
+    if(!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+function fmt(v, decimals=2) {
+  const n = parseFloat(v)||0;
+  return (n>=0?'+':'')+'\$'+Math.abs(n).toFixed(decimals);
+}
+
+function fmtP(v) {
+  const n = parseFloat(v)||0;
+  if(n >= 1000000) return '\$'+(n/1000000).toFixed(2)+'M';
+  if(n >= 1000) return '\$'+(n/1000).toFixed(1)+'k';
+  return '\$'+n.toFixed(2);
+}
+
+function ago(ts) {
+  if(!ts) return '-';
+  const d = (Date.now()-new Date(ts).getTime())/1000;
+  if(d<60) return Math.floor(d)+'s';
+  if(d<3600) return Math.floor(d/60)+'m';
+  return Math.floor(d/3600)+'h';
+}
+
+function catClass(cat) {
+  if(!cat) return 'cat-other';
+  const c = cat.toLowerCase();
+  if(c.includes('crypto')) return 'cat-crypto';
+  if(c.includes('commodity') || c.includes('oil') || c.includes('gold')) return 'cat-commodity';
+  if(c.includes('stock')) return 'cat-stocks';
+  if(c.includes('forex')) return 'cat-forex';
+  if(c.includes('polit')) return 'cat-politics';
+  return 'cat-other';
+}
+
+function assetClass(asset) {
+  const a = (asset||'').toLowerCase();
+  if(['btc','xrp','eth','sol'].includes(a)) return a==='btc'?'btc':a==='eth'?'eth':'other';
+  if(['gold','silver'].includes(a)) return 'gold';
+  if(['oil','gas'].includes(a)) return 'oil';
+  if(['spx','ndx','spy'].includes(a)) return 'spx';
+  return 'other';
+}
+
+// ── OVERVIEW ──
+async function loadOverview() {
+  const d = await api('/api/overview');
+  if(!d) return;
+  const {today={},week={},alltime={}} = d;
+
+  const tp = today.pnl||0;
+  document.getElementById('sPnlDay').textContent = fmt(tp);
+  document.getElementById('sPnlDay').className = 'sc-val '+(tp>=0?'g':'r');
+  document.getElementById('sTrDay').textContent = `${today.total||0} trades · ${today.win_rate||0}% WR`;
+
+  const wp = week.pnl||0;
+  document.getElementById('sPnlWeek').textContent = fmt(wp);
+  document.getElementById('sPnlWeek').className = 'sc-val '+(wp>=0?'g':'r');
+  document.getElementById('sTrWeek').textContent = `${week.total||0} trades`;
+
+  const ap = alltime.pnl||0;
+  document.getElementById('sPnlAll').textContent = fmt(ap);
+  document.getElementById('sPnlAll').className = 'sc-val '+(ap>=0?'g':'r');
+  document.getElementById('sTrAll').textContent = `${alltime.total||0} trades · ${alltime.win_rate||0}% WR`;
+
+  const wr = parseFloat(today.win_rate)||0;
+  document.getElementById('wlWinPct').textContent = wr+'%';
+  document.getElementById('wlLossPct').textContent = (100-wr).toFixed(1)+'%';
+  document.getElementById('wlWinBar').style.width = wr+'%';
+  document.getElementById('wlLossBar').style.width = (100-wr)+'%';
+}
+
+// ── PRICES ──
+async function loadPrices() {
+  const d = await api('/api/prices');
+  if(!d) return;
+  const set = (id, key, prefix='$') => {
+    const el = document.getElementById(id);
+    if(el && d[key]) el.textContent = prefix + parseFloat(d[key]).toLocaleString('en-US', {maximumFractionDigits:2});
+  };
+  set('pBTC','BTC'); set('pETH','ETH'); set('pGOLD','GOLD');
+  set('pOIL','OIL'); set('pSPX','SPX');
+}
+
+// ── RADAR ──
+async function loadRadar() {
+  const bonds = await api('/api/radar');
+  if(!bonds) return;
+
+  document.getElementById('sRadar').textContent = bonds.length;
+  document.getElementById('sRadarSub').textContent = bonds.filter(b=>b.will_trade).length + ' will trade';
+  document.getElementById('radarCount').textContent = bonds.length + ' impossible markets';
+
+  // Category counts
+  const cats = {'crypto':0,'commodity':0,'stocks':0,'forex':0,'politics':0,'other':0};
+  bonds.forEach(b => {
+    const c = (b.category||'').toLowerCase();
+    if(c.includes('crypto')) cats.crypto++;
+    else if(c.includes('commodity')||c.includes('oil')||c.includes('gold')) cats.commodity++;
+    else if(c.includes('stock')) cats.stocks++;
+    else if(c.includes('forex')) cats.forex++;
+    else if(c.includes('polit')) cats.politics++;
+    else cats.other++;
+  });
+  const keys = ['crypto','commodity','stocks','forex','politics','other'];
+  keys.forEach((k,i) => {
+    const el = document.getElementById('cc'+i);
+    if(el) el.textContent = cats[k];
+  });
+
+  if(!bonds.length) {
+    document.getElementById('radarList').innerHTML = '<div style="color:var(--muted);font-size:10px;text-align:center;padding:20px">No impossible markets found right now</div>';
+    return;
+  }
+
+  const html = bonds.slice(0,25).map(b => {
+    const safety = b.gap_pct >= 20 ? 'h' : b.gap_pct >= 12 ? 'm' : 'l';
+    const wc = b.win_probability >= 0.96 ? 'var(--green)' : b.win_probability >= 0.90 ? 'var(--yellow)' : 'var(--muted)';
+    const cc = catClass(b.category);
+    const dirIcon = b.direction === 'UP' ? '↑' : '↓';
+    return `<div class="ri ${safety}">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        <span class="cat-badge ${cc}">${b.category||'Other'}</span>
+        <span style="font-size:9px;font-family:var(--mono);color:var(--muted)">${b.asset} ${dirIcon} ${fmtP(b.target_price)}</span>
+      </div>
+      <div class="rq">${b.question}</div>
+      <div class="rm">
+        <div class="rs"><div class="rs-l">Gap</div><div class="rs-v g">${b.gap_pct}%</div></div>
+        <div class="rs"><div class="rs-l">Yield</div><div class="rs-v y">${b.yield_pct}%</div></div>
+        <div class="rs"><div class="rs-l">Current</div><div class="rs-v w">${fmtP(b.current_price)}</div></div>
+        <div class="rs"><div class="rs-l">Resolves</div><div class="rs-v" style="color:var(--muted)">${b.resolves_in}</div></div>
+      </div>
+      <div class="rf">
+        <span class="rb">${b.will_trade ? '🤖 '+b.assigned_bot : '⏸ no bot'}</span>
+        <div class="wbar"><div class="wfill" style="width:${b.win_probability*100}%"></div></div>
+        <span class="wpct" style="color:${wc}">${(b.win_probability*100).toFixed(0)}%</span>
+        <span style="margin-left:5px" class="badge ${b.will_trade?'yes':'no'}">${b.will_trade?'TRADE':'WATCH'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('radarList').innerHTML = html;
+}
+
+// ── BOTS ──
+async function loadBots() {
+  const bots = await api('/api/bots');
+  if(!bots) return;
+
+  const entries = Object.entries(bots);
+  const active = entries.filter(([,b])=>b.active).length;
+  document.getElementById('sBots').textContent = `${active} / ${entries.length}`;
+  document.getElementById('botActive').textContent = `${active}/${entries.length} active`;
+
+  const colors = {conservative:'var(--green)',moderate:'var(--blue)',aggressive:'var(--red)',diversified:'var(--yellow)',backup:'var(--purple)'};
+
+  // Right column compact list
+  const listHtml = entries.map(([name, bot]) => {
+    const c = colors[name]||'var(--accent)';
+    const wr = ((bot.win_rate||0)*100).toFixed(0);
+    const active = bot.active;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--surface2);border-radius:7px;border:1px solid ${active?'var(--border)':'var(--red)'}">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div class="bind ${active?'on':'off'}"></div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:${c}">${name}</div>
+          <div style="font-size:8px;color:var(--muted);font-family:var(--mono)">${wr}% WR · ${bot.total_trades||0} trades</div>
+        </div>
+      </div>
+      <button class="stopbtn ${active?'run':'stp'}" onclick="toggleBot('${name}',this)" style="width:auto;padding:4px 10px">
+        ${active?'STOP':'START'}
+      </button>
+    </div>`;
+  }).join('');
+  document.getElementById('botList').innerHTML = listHtml;
+
+  // Full grid
+  const gridHtml = entries.map(([name, bot]) => {
+    const c = colors[name]||'var(--accent)';
+    const wr = ((bot.win_rate||0)*100).toFixed(0);
+    const active = bot.active;
+    const pnl = bot.pnl||0;
+    return `<div class="bot ${active?'':'off'}" id="bc-${name}">
+      <div class="bh">
+        <div style="display:flex;align-items:center">
+          <div class="bind ${active?'on':'off'}"></div>
+          <div class="bn" style="color:${c}">${name.toUpperCase()}</div>
+        </div>
+      </div>
+      <div class="bstats">
+        <div class="bs"><div class="bs-l">WR</div><div class="bs-v" style="color:${parseFloat(wr)>=55?'var(--green)':parseFloat(wr)>=45?'var(--yellow)':'var(--red)'}">${wr}%</div></div>
+        <div class="bs"><div class="bs-l">P&L</div><div class="bs-v" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${fmt(pnl)}</div></div>
+        <div class="bs"><div class="bs-l">Trades</div><div class="bs-v">${bot.total_trades||0}</div></div>
+        <div class="bs"><div class="bs-l">Min Gap</div><div class="bs-v" style="color:var(--muted)">${bot.min_gap||0}%</div></div>
+      </div>
+      <div class="wrbar"><div class="wrfill" style="width:${wr}%;background:${c}88"></div></div>
+      <button class="stopbtn ${active?'run':'stp'}" onclick="toggleBot('${name}',this)">${active?'STOP BOT':'START BOT'}</button>
+    </div>`;
+  }).join('');
+  document.getElementById('botsGrid').innerHTML = gridHtml;
+}
+
+async function toggleBot(name, btn) {
+  const isRun = btn.classList.contains('run');
+  const url = isRun ? `/api/bots/${name}/stop` : `/api/bots/${name}/start`;
+  const r = await fetch(url, {method:'POST', headers:{Authorization:AUTH}});
+  const d = await r.json();
+  if(d.success) loadBots();
+}
+
+// ── POSITIONS ──
+async function loadPositions() {
+  const pos = await api('/api/positions');
+  if(!pos) return;
+  document.getElementById('posCount').textContent = pos.length + ' active';
+  document.getElementById('sPos').textContent = pos.length + ' open positions';
+
+  if(!pos.length) {
+    document.getElementById('posList').innerHTML = '<div style="color:var(--muted);font-size:10px;text-align:center;padding:12px">No open positions</div>';
+    return;
+  }
+
+  const html = pos.map(p => {
+    const asset = (p.market_question||'').toLowerCase();
+    const ac = asset.includes('bitcoin')||asset.includes('btc') ? 'btc'
+      : asset.includes('ethereum')||asset.includes('eth') ? 'eth'
+      : asset.includes('gold') ? 'gold'
+      : asset.includes('oil') ? 'oil'
+      : asset.includes('s&p')||asset.includes('nasdaq') ? 'spx' : 'other';
+    const assetLabel = ac === 'btc' ? 'BTC' : ac === 'eth' ? 'ETH' : ac === 'gold' ? 'GOLD' : ac === 'oil' ? 'OIL' : ac === 'spx' ? 'SPX' : 'BOND';
+    const pnl = ((p.current_price||p.entry_price) - p.entry_price) * (p.shares||0);
+    return `<div class="pi">
+      <div class="pa ${ac}">${assetLabel}</div>
+      <div class="pinfo">
+        <div class="pq">${(p.market_question||'').substring(0,55)}</div>
+        <div class="pm">Bot: ${p.bot_name} · $${(p.amount||0).toFixed(2)} NO @ ${(p.entry_price||0).toFixed(3)} · ${ago(p.opened_at)}</div>
+      </div>
+      <div class="ppnl ${pnl>=0?'g':'r'}">${fmt(pnl)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('posList').innerHTML = html;
+}
+
+// ── TRADES ──
+async function loadTrades() {
+  const trades = await api('/api/trades?limit=15');
+  if(!trades||!trades.length) return;
+
+  const html = trades.map(t => {
+    const oc = t.outcome;
+    const bc = oc==='win'?'win':oc==='loss'?'loss':'pending';
+    const pnl = t.pnl||0;
+    const reasoning = t.reasoning||'';
+    const yieldMatch = reasoning.match(/Yield:\s*([\d.]+)%/);
+    const yld = yieldMatch ? yieldMatch[1]+'%' : '-';
+    const asset = (t.market_question||'').toLowerCase();
+    const cat = asset.includes('bitcoin')||asset.includes('btc') ? '🪙 Crypto'
+      : asset.includes('gold')||asset.includes('oil') ? '🛢️ Commodity'
+      : asset.includes('s&p')||asset.includes('nasdaq')||asset.includes('tesla') ? '📈 Stocks'
+      : asset.includes('ethereum')||asset.includes('eth') ? '🪙 Crypto'
+      : '📊 Other';
+    return `<tr>
+      <td style="color:var(--accent)">${t.bot_name||'-'}</td>
+      <td style="font-size:9px">${cat}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.market_question||'').substring(0,35)}</td>
+      <td style="color:var(--red)">NO</td>
+      <td>$${(t.amount||0).toFixed(2)}</td>
+      <td style="color:var(--yellow)">${yld}</td>
+      <td style="color:${pnl>=0?'var(--green)':'var(--red)'}">${fmt(pnl)}</td>
+      <td style="color:var(--muted)">${ago(t.created_at)}</td>
+      <td><span class="tb ${bc}">${(oc||'PENDING').toUpperCase()}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('trBody').innerHTML = html;
+}
+
+// ── STATUS ──
+async function loadStatus() {
+  const s = await api('/api/status');
+  if(!s) return;
+  const cb = s.circuit_breaker||{};
+  document.getElementById('cbStatus').textContent = cb.is_open ? '🔴 OPEN' : 'CLOSED ✓';
+  document.getElementById('cbStatus').className = cb.is_open ? 'r' : 'g';
+  const ex = s.executor||{};
+  document.getElementById('tpStatus').textContent = ex.trades_placed||0;
+  document.getElementById('trStatus').textContent = ex.trades_rejected||0;
+}
+
+// ── P&L CHART ──
+async function loadChart() {
+  const data = await api('/api/pnl/daily');
+  if(!data) return;
+  pnlHistory = data;
+  drawLine(data);
+  drawBars(data);
+}
+
+function drawLine(data) {
+  const c = document.getElementById('pnlChart');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  c.width = c.parentElement.offsetWidth;
+  c.height = 160;
+  const pnls = data.map(d=>parseFloat(d.pnl)||0);
+  let cum = [], run = 0;
+  for(const p of pnls){run+=p;cum.push(run);}
+  if(!cum.length) cum = [0,0];
+  const mn = Math.min(0,...cum), mx = Math.max(0,...cum), rng = mx-mn||1;
+  const w=c.width, h=c.height, pd={t:16,r:16,b:26,l:46};
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='rgba(30,30,48,.8)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pd.t+(h-pd.t-pd.b)*i/4;
+    ctx.beginPath();ctx.moveTo(pd.l,y);ctx.lineTo(w-pd.r,y);ctx.stroke();
+    const v=mx-(rng*i/4);
+    ctx.fillStyle='rgba(71,85,105,.8)';ctx.font='8px Space Mono';ctx.textAlign='right';
+    ctx.fillText((v>=0?'+':'')+'$'+v.toFixed(0),pd.l-3,y+3);
+  }
+  if(cum.length<2) return;
+  const zY=pd.t+(mx/rng)*(h-pd.t-pd.b);
+  ctx.strokeStyle='rgba(100,100,150,.4)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(pd.l,zY);ctx.lineTo(w-pd.r,zY);ctx.stroke();ctx.setLineDash([]);
+  const xSt=(w-pd.l-pd.r)/(cum.length-1);
+  const grad=ctx.createLinearGradient(0,pd.t,0,h-pd.b);
+  grad.addColorStop(0,'rgba(16,185,129,.25)');grad.addColorStop(1,'rgba(16,185,129,.02)');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.moveTo(pd.l,zY);
+  cum.forEach((v,i)=>{const x=pd.l+i*xSt,y=pd.t+((mx-v)/rng)*(h-pd.t-pd.b);ctx.lineTo(x,y);});
+  ctx.lineTo(pd.l+(cum.length-1)*xSt,zY);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#10b981';ctx.lineWidth=2;ctx.beginPath();
+  cum.forEach((v,i)=>{const x=pd.l+i*xSt,y=pd.t+((mx-v)/rng)*(h-pd.t-pd.b);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.stroke();
+  const pk=Math.max(...cum),lw=Math.min(...cum),nt=cum[cum.length-1];
+  document.getElementById('cpeak').textContent=fmt(pk);
+  document.getElementById('clow').textContent=fmt(lw);
+  document.getElementById('cnet').textContent=fmt(nt);
+}
+
+function drawBars(data) {
+  const last7=data.slice(-7);
+  const maxA=Math.max(...last7.map(d=>Math.abs(parseFloat(d.pnl)||0)),1);
+  const total=last7.reduce((s,d)=>s+(parseFloat(d.pnl)||0),0);
+  document.getElementById('weekTotal').textContent=fmt(total)+' this week';
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const html=last7.map(d=>{
+    const p=parseFloat(d.pnl)||0;
+    const ht=Math.max(3,Math.abs(p)/maxA*65);
+    const day=new Date(d.date).getDay();
+    return `<div class="dbw">
+      <div class="dv ${p>=0?'g':'r'}">${fmt(p,0)}</div>
+      <div class="db ${p>=0?'pos':'neg'}" style="height:${ht}px"></div>
+      <div class="dl">${days[day]||'-'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('dailyBars').innerHTML=html;
+}
+
+function setTab(btn, tab) {
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawLine(pnlHistory);
+}
+
+// ── MAIN REFRESH ──
+async function refresh() {
+  document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
+  await Promise.all([
+    loadOverview(), loadPrices(), loadRadar(),
+    loadBots(), loadPositions(), loadTrades(),
+    loadStatus(), loadChart(), loadTelegram(),
+  ]);
+}
+
+// ── TELEGRAM ──────────────────────────────────────────────
+async function loadTelegram() {
+  const d = await api('/api/telegram/status');
+  if (!d) return;
+  document.getElementById('tgEnabled').textContent = d.enabled ? '🟢 Connected' : '🔴 Not configured';
+  document.getElementById('tgEnabled').className = d.enabled ? 'g' : 'r';
+  document.getElementById('tgToken').textContent = d.token_set ? '✅ Set' : '❌ Missing';
+  document.getElementById('tgToken').className = d.token_set ? 'g' : 'r';
+  document.getElementById('tgChat').textContent = d.chat_id_set ? '✅ Set' : '❌ Missing';
+  document.getElementById('tgChat').className = d.chat_id_set ? 'g' : 'r';
+  document.getElementById('tgStatus').textContent = d.enabled ? 'active' : 'disabled';
+}
+
+async function testTelegram() {
+  const btn = document.getElementById('tgTestBtn');
+  const result = document.getElementById('tgTestResult');
+  btn.textContent = '⏳ Sending...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/telegram/test', {
+      method: 'POST',
+      headers: {Authorization: AUTH}
+    });
+    const d = await r.json();
+    result.style.display = 'block';
+    if (d.success) {
+      result.textContent = '✅ ' + d.message;
+      result.style.color = 'var(--green)';
+      btn.textContent = '✅ SENT!';
+    } else {
+      result.textContent = '❌ ' + d.message;
+      result.style.color = 'var(--red)';
+      btn.textContent = '❌ FAILED';
+    }
+  } catch(e) {
+    result.style.display = 'block';
+    result.textContent = '❌ Error: ' + e.message;
+    result.style.color = 'var(--red)';
+    btn.textContent = '📤 SEND TEST MESSAGE';
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = '📤 SEND TEST MESSAGE'; }, 3000);
+}
+
+async function setAmount(botName) {
+  const input = document.getElementById('amt-'+botName);
+  const amount = parseFloat(input.value);
+  if (!amount || amount <= 0) {
+    input.style.borderColor = 'var(--red)';
+    setTimeout(() => input.style.borderColor = 'var(--border)', 1500);
+    return;
+  }
+  try {
+    const r = await fetch(`/api/bots/${botName}/amount`, {
+      method: 'POST',
+      headers: {Authorization: AUTH, 'Content-Type': 'application/json'},
+      body: JSON.stringify({amount})
+    });
+    const d = await r.json();
+    if (d.success) {
+      input.style.borderColor = 'var(--green)';
+      setTimeout(() => { input.style.borderColor = 'var(--border)'; loadBots(); }, 1000);
+    }
+  } catch(e) {
+    input.style.borderColor = 'var(--red)';
+  }
+}
+
+refresh();
+setInterval(refresh, 30000);
+window.addEventListener('resize', ()=>drawLine(pnlHistory));
+</script>
+</body>
+</html>
